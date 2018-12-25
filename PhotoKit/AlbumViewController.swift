@@ -122,6 +122,9 @@ class OMAlbumManager{
     /** 请求获取相册图片的ID*/
     typealias OMImageRequestID = PHImageRequestID
     
+    /** 操作回调*/
+    typealias OMEditOprationHandler = ((_ status: Bool, _ error: Error?) -> Void)
+    
     /** 获取相簿类型*/
     enum OMAlbumFetchType{
         /** 包含了系统相相簿和用户相簿*/
@@ -159,12 +162,31 @@ class OMAlbumManager{
     //MARK: - public method
     
     /** 创建相簿*/
-    public class func createAlbum(name: String, icon: UIImage){
-        
+    public class func createAlbum(name: String, icon: UIImage, completionHandler: OMEditOprationHandler?){
+        PHPhotoLibrary.shared().performChanges({
+            PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: name)
+        }) { (status, error) in
+            guard completionHandler != nil else { return }
+            completionHandler?(status, error)
+        }
+    }
+    
+    /** 创建相簿列表*/
+    public class func createAlbumList(name: String, completionHandler: OMEditOprationHandler?) {
+        PHPhotoLibrary.shared().performChanges({
+            PHCollectionListChangeRequest.creationRequestForCollectionList(withTitle: name)
+        }) { (status, error) in
+            guard completionHandler != nil else { return }
+            completionHandler?(status, error)
+        }
     }
     
     /** 删除相簿*/
-    public class func deleteAlbum(){}
+    public class func deleteAlbum(name: String){
+        PHPhotoLibrary.shared().performChanges({
+            PHAssetCollectionChangeRequest.deleteAssetCollections(<#T##assetCollections: NSFastEnumeration##NSFastEnumeration#>)
+        }, completionHandler: <#T##((Bool, Error?) -> Void)?##((Bool, Error?) -> Void)?##(Bool, Error?) -> Void#>)
+    }
     
     /** 清除缓存相簿列表，其实这个占用的空间非常小，一般情况下不调用此方法*/
     public func removeCache(){
@@ -678,6 +700,7 @@ class AlbumViewController: UIViewController {
             }
             print("结束：", CFAbsoluteTimeGetCurrent(), albums.count)
         }
+        OMAlbumManager.createAlbum(name: "AAAAA", icon: UIImage())
         
         tableView = UITableView.init(frame: self.view.bounds)
         tableView.delegate = self
