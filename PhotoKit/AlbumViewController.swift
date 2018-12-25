@@ -59,6 +59,7 @@ extension UIImageView{
     
 }
 
+/** 缓存相簿列表数据的key */
 fileprivate let cacheData: String = "OMAlbumsFromCache"
 
 /** 缓存相簿基本信息*/
@@ -205,8 +206,8 @@ class OMAlbumManager{
         return assets
     }
     
-    /** 获取相簿*/
-    public func requestAlbums(type: OMAlbumFetchType = .default) -> Array<OMAlbum>{
+    /** 同步方式获取相簿列表，不会使用缓存*/
+    public func requestAlbumsSync(type: OMAlbumFetchType = .default) -> Array<OMAlbum>{
         switch type {
         case .default:
             let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
@@ -243,8 +244,8 @@ class OMAlbumManager{
         }
     }
     
-    /** 获取相簿*/
-    public func requestAlbums(type: OMAlbumFetchType = .default, completion: @escaping (([OMAlbum]) -> Void)){
+    /** 异步方式获取相簿*/
+    public func requestAlbumsAsync(type: OMAlbumFetchType = .default, completion: @escaping (([OMAlbum]) -> Void)){
         DispatchQueue.global().async {
             if !self.cacheAlbums.isEmpty {
                 let albums = self.cacheAlbums.map({ (cache) -> OMAlbum in
@@ -670,7 +671,7 @@ class AlbumViewController: UIViewController {
         self.view.backgroundColor = UIColor.white
         print("开始：", CFAbsoluteTimeGetCurrent())
 //        self.albums = OMAlbumManager.cacheAlbums
-        self.albumManager.requestAlbums(type: .default) { (albums) in
+        self.albumManager.requestAlbumsAsync(type: .default) { (albums) in
             self.albums = albums
             DispatchQueue.main.async {
                 self.tableView.reloadData()
