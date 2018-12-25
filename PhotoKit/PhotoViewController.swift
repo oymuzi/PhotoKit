@@ -16,7 +16,7 @@ class PhotoViewController: UIViewController {
     
     private var fetchResult: PHFetchResult<PHAsset>!
     
-    private var displayAlbum = [PHAsset]()
+    public var displayAlbum = [OMAsset]()
     
     private var cacheingManager: PHCachingImageManager!
     
@@ -75,32 +75,32 @@ class PhotoViewController: UIViewController {
 //        library.register(self)
         
         
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.includeAllBurstAssets = true
-        if #available(iOS 9.0, *) {
-            fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeiTunesSynced]
-//            fetchOptions.fetchLimit = 100
-        } else {
-            // Fallback on earlier versions
-        }
-        
-//        let albums = PHAssetCollection.fetchTopLevelUserCollections(with: fetchOptions)
-        
-        
-        
-        fetchOptions.sortDescriptors = [NSSortDescriptor.init(key: "creationDate", ascending: false)]
-        self.fetchResult = PHAsset.fetchAssets(with: fetchOptions)
-        print("共获取数量： \(fetchResult.count)")
-        
-        self.title = fetchResult.count.description
-        var tempData = [PHAsset]()
-        fetchResult.enumerateObjects { (asset, index, stop) in
-            tempData.append(asset)
-        }
-        self.displayAlbum = tempData
-        self.changeLike(for: tempData[0]) { (status, error) in
-            
-        }
+//        let fetchOptions = PHFetchOptions()
+//        fetchOptions.includeAllBurstAssets = true
+//        if #available(iOS 9.0, *) {
+//            fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeiTunesSynced]
+////            fetchOptions.fetchLimit = 100
+//        } else {
+//            // Fallback on earlier versions
+//        }
+//
+////        let albums = PHAssetCollection.fetchTopLevelUserCollections(with: fetchOptions)
+//
+//
+//
+//        fetchOptions.sortDescriptors = [NSSortDescriptor.init(key: "creationDate", ascending: false)]
+//        self.fetchResult = PHAsset.fetchAssets(with: fetchOptions)
+//        print("共获取数量： \(fetchResult.count)")
+//
+//        self.title = fetchResult.count.description
+//        var tempData = [PHAsset]()
+//        fetchResult.enumerateObjects { (asset, index, stop) in
+//            tempData.append(asset)
+//        }
+//        self.displayAlbum = tempData
+//        self.changeLike(for: tempData[0]) { (status, error) in
+//
+//        }
         print("结束时间：\(CFAbsoluteTimeGetCurrent())")
     }
   

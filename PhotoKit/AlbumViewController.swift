@@ -593,7 +593,7 @@ struct OMAlbumTitleConfig{
 /** 相簿配置*/
 struct OMAlbumConfig{
     
-    /** 是否开启缓存相簿列表，默认值：true，只缓存标题，原始相簿标题，资源数量，将会存储在UerDefaults里，若需清除缓存，可调用OMAlbumManagerz的removeCache方法*/
+    /** 是否开启缓存相簿列表，默认值：true，只缓存标题，原始相簿标题，资源数量，将会存储在UerDefaults里，若需清除缓存，可调用OMAlbumManager的removeCache方法*/
     public var isCacheAlbumList = true
     
     /** 是否需要相簿占位图*/
@@ -737,5 +737,13 @@ extension AlbumViewController: UITableViewDelegate, UITableViewDataSource {
         cell.titleLabel.text = "(\(albums[indexPath.row].count.description))  "+(albums[indexPath.row].title ?? "")
         cell.iconView.om_requestAlbumIcon(album: &albums[indexPath.row])
         return cell
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let index = indexPath.row
+        let assets = OMAlbumManager.init().requestAssets(from: albums[index])
+        let va = PhotoViewController()
+        va.displayAlbum = assets
+        self.navigationController?.pushViewController(va, animated: true)
     }
 }
