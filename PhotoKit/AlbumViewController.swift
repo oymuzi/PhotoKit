@@ -1,0 +1,740 @@
+//
+//  AlbumViewController.swift
+//  PhotoKit
+//
+//  Created by admin on 2018/12/20.
+//  Copyright © 2018年 oymuzi. All rights reserved.
+//
+
+import UIKit
+import Photos
+
+
+extension Array{
+    static func +(_ lhs: Array<Element>, _ rhs: Array<Element>) -> Array<Element> {
+        var baseArray = lhs
+        for element in rhs{
+            baseArray.append(element)
+        }
+        return baseArray
+    }
+}
+
+extension CGSize{
+    
+    static func * (_ lhs: CGSize, _ rhs: CGFloat) -> CGSize {
+        return CGSize.init(width: lhs.width * rhs, height: lhs.height * rhs)
+    }
+    
+    static func * (_ lhs: CGFloat, _ rhs: CGSize) -> CGSize {
+        return CGSize.init(width: lhs * rhs.width, height: lhs * rhs.height)
+    }
+}
+
+extension UIImageView{
+
+    /** 请求相簿封面的图标*/
+    func om_requestAlbumIcon(album: inout OMAlbum) {
+        let manager = OMAlbumManager.init()
+        manager.requestImageFrom(album: &album) { [weak self] (image, info) in
+            guard let strongSelf = self else { return }
+            DispatchQueue.main.async {
+                strongSelf.image = image
+                strongSelf.setNeedsLayout()
+            }
+        }
+    }
+    
+    /** 请求来自相簿的图片*/
+    func om_requestImageFrom(asset: inout OMAsset, imageSize: CGSize) {
+        let manager = OMAlbumManager.init()
+        manager.requestImageFrom(asset: &asset, imageSize: imageSize) { [weak self] (image, info) in
+            guard let strongSelf = self else { return }
+            DispatchQueue.main.async {
+                strongSelf.image = image
+                strongSelf.setNeedsLayout()
+            }
+        }
+    }
+    
+}
+
+fileprivate let cacheData: String = "OMAlbumsFromCache"
+
+/** 缓存相簿基本信息*/
+@objc(OMCacheAlbum_oymuzi) fileprivate class OMCacheAlbum: NSObject, NSCoding{
+    
+    private let propertyTitle = "OMCacheAlbum_title"
+    private let propertyOriginTitle = "OMCacheAlbum_originTitle"
+    private let propertyCount = "OMCacheAlbum_count"
+    
+    var title: String?
+    var originTitle: String?
+    var count: Int
+    
+    override init() {
+        title = nil
+        originTitle = nil
+        count = 0
+    }
+    
+    convenience init(title: String?, originTitle: String?, count: Int){
+        self.init()
+        self.title = title
+        self.originTitle = originTitle
+        self.count = count
+    }
+    
+    func encode(with aCoder: NSCoder) {
+        aCoder.encode(title, forKey: propertyTitle)
+        aCoder.encode(originTitle, forKey: propertyOriginTitle)
+        aCoder.encode(count, forKey: propertyCount)
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        self.title = aDecoder.decodeObject(forKey: propertyTitle) as? String
+        self.originTitle = aDecoder.decodeObject(forKey: propertyOriginTitle) as? String
+        self.count = aDecoder.decodeInteger(forKey: propertyCount)
+    }
+}
+
+class OMAlbumManager{
+    
+    /** 缓存相簿列表*/
+    private var cacheAlbums: [OMCacheAlbum] = []
+    
+    /** 抓取的结果*/
+    private var fetchResults: PHFetchResult<PHAsset>?
+    
+    /** 相簿管理器的配置*/
+    public var config: OMAlbumConfig = OMAlbumConfig.init()
+    
+    /** 缓存管理器*/
+    public var cacheImageManager: PHCachingImageManager = {
+        let cacheImageManager = PHCachingImageManager.init()
+        return cacheImageManager
+    }()
+    
+    /** 请求获取图片的回调*/
+    typealias OMAlbumRequestHandler = ((_ image: UIImage?, _ info: [AnyHashable: Any]?) -> Void)
+    
+    /** 请求获取相册图片的ID*/
+    typealias OMImageRequestID = PHImageRequestID
+    
+    /** 获取相簿类型*/
+    enum OMAlbumFetchType{
+        /** 包含了系统相相簿和用户相簿*/
+        case `default`
+        /** 系统相簿*/
+        case system
+        /** 用户相簿*/
+        case user
+        /** 仅获取是图片的相簿*/
+        case onlyImage
+        /** 仅获取是视频的相簿*/
+        case onlyVideo
+        /** 仅获取是动态图的相簿集合*/
+        @available(iOS 11.0, *)
+        case onlyGIF
+    }
+    
+    /** 资源类型*/
+    enum OMAssetType {
+        /** 默认为全获取*/
+        case `default`
+        /** 仅图片*/
+        case onlyImage
+        /** 仅GIF图片*/
+        case onlyGIF
+        /** 仅视频*/
+        case onlyVideo
+    }
+    
+    
+    init() {
+        self.cacheAlbums = readAlbumsFromCache()
+    }
+    
+    //MARK: - public method
+    
+    /** 创建相簿*/
+    public class func createAlbum(name: String, icon: UIImage){
+        
+    }
+    
+    /** 删除相簿*/
+    public class func deleteAlbum(){}
+    
+    /** 清除缓存相簿列表，其实这个占用的空间非常小，一般情况下不调用此方法*/
+    public func removeCache(){
+        UserDefaults.standard.setNilValueForKey(cacheData)
+    }
+    
+    /** 在指定相册里获取资源结果*/
+    public func requestAssetsResults(from album: OMAlbum, options: PHFetchOptions? = OMAlbumConfig.fetchOptions) -> PHFetchResult<PHAsset> {
+        return PHAsset.fetchAssets(in: album.collection, options: options)
+    }
+    
+    
+    /** 在指定相簿里获取指定类型的资源*/
+    public func requestAssets(from album: OMAlbum, type: OMAssetType = .default, options: PHFetchOptions? = OMAlbumConfig.fetchOptions) -> Array<OMAsset> {
+        var assets = [PHAsset]()
+        requestAssetsResults(from: album, options: options).enumerateObjects { (asset, index, stop) in
+            let temp = self.initExtraInfo(with: asset)
+            switch type{
+            case .default:
+                assets.append(temp)
+                break
+            case .onlyGIF:
+                if asset.isGIF{
+                    assets.append(temp)
+                }
+                break
+            case .onlyImage:
+                if asset.isImage{
+                    assets.append(asset)
+                }
+                break
+            case .onlyVideo:
+                if asset.isVideo{
+                    assets.append(asset)
+                }
+                break
+            }
+        }
+        return assets
+    }
+    
+    /** 获取相簿*/
+    public func requestAlbums(type: OMAlbumFetchType = .default) -> Array<OMAlbum>{
+        switch type {
+        case .default:
+            let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
+            let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .albumRegular, options: nil)
+            let albums = requestAlbumsFor(albumResult: systemAlbum) + requestAlbumsFor(albumResult: userAlbum)
+            return albums
+        case .system:
+            let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
+            let albums = requestAlbumsFor(albumResult: systemAlbum)
+            return albums
+        case .user:
+             let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .albumRegular, options: nil)
+             let albums = requestAlbumsFor(albumResult: userAlbum)
+             return albums
+        case .onlyImage:
+            let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .smartAlbumGeneric, options: nil)
+            let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumGeneric, options: nil)
+            let albums = requestAlbumsFor(albumResult: systemAlbum) + requestAlbumsFor(albumResult: userAlbum)
+            return albums
+        case .onlyGIF:
+            if #available(iOS 11.0, *) {
+                let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .smartAlbumAnimated, options: nil)
+                let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumAnimated, options: nil)
+                let albums = requestAlbumsFor(albumResult: systemAlbum) + requestAlbumsFor(albumResult: userAlbum)
+                return albums
+            } else {
+                return []
+            }
+        case .onlyVideo:
+            let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .smartAlbumVideos, options: nil)
+            let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumVideos, options: nil)
+            let albums = requestAlbumsFor(albumResult: systemAlbum) + requestAlbumsFor(albumResult: userAlbum)
+            return albums
+        }
+    }
+    
+    /** 获取相簿*/
+    public func requestAlbums(type: OMAlbumFetchType = .default, completion: @escaping (([OMAlbum]) -> Void)){
+        DispatchQueue.global().async {
+            if !self.cacheAlbums.isEmpty {
+                let albums = self.cacheAlbums.map({ (cache) -> OMAlbum in
+                    var album = OMAlbum.init()
+                    album.title = cache.title
+                    album.originTitle = cache.originTitle
+                    album.count = cache.count
+                    return album
+                })
+                completion(albums)
+            }
+            var albumLists = [OMAlbum]()
+            switch type {
+            case .default:
+                let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
+                let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .albumRegular, options: nil)
+                let albums = self.requestAlbumsFor(albumResult: systemAlbum) + self.requestAlbumsFor(albumResult: userAlbum)
+                albumLists = albums
+            case .system:
+                let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
+                let albums = self.requestAlbumsFor(albumResult: systemAlbum)
+                albumLists = albums
+            case .user:
+                let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .albumRegular, options: nil)
+                let albums = self.requestAlbumsFor(albumResult: userAlbum)
+                albumLists = albums
+            case .onlyImage:
+                let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .smartAlbumGeneric, options: nil)
+                let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumGeneric, options: nil)
+                let albums = self.requestAlbumsFor(albumResult: systemAlbum) + self.requestAlbumsFor(albumResult: userAlbum)
+                albumLists = albums
+            case .onlyGIF:
+                if #available(iOS 11.0, *) {
+                    let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .smartAlbumAnimated, options: nil)
+                    let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumAnimated, options: nil)
+                    let albums = self.requestAlbumsFor(albumResult: systemAlbum) + self.requestAlbumsFor(albumResult: userAlbum)
+                    albumLists = albums
+                } else {
+                    albumLists = []
+                }
+            case .onlyVideo:
+                let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .smartAlbumVideos, options: nil)
+                let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumVideos, options: nil)
+                let albums = self.requestAlbumsFor(albumResult: systemAlbum) + self.requestAlbumsFor(albumResult: userAlbum)
+                albumLists = albums
+            }
+            completion(albumLists)
+            guard self.config.isCacheAlbumList else { return }
+            let cache = albumLists.map({ (album) -> OMCacheAlbum in
+                return OMCacheAlbum.init(title: album.title, originTitle: album.originTitle, count: album.count)
+            })
+            let datas = cache.map({ (cache) -> Data in
+                return NSKeyedArchiver.archivedData(withRootObject: cache)
+            })
+            UserDefaults.standard.set(datas, forKey: cacheData)
+            UserDefaults.standard.synchronize()
+        }
+    }
+    
+   
+    
+    /** 请求获取相册图片*/
+    public func requestImageFrom(asset: inout OMAsset, imageSize: CGSize, completion: @escaping OMAlbumRequestHandler) {
+        guard asset.isImage || asset.isVideo else {
+            completion(config.placeholderImage, nil)
+            return
+        }
+        
+        cancelRequestImageFor(requestID: asset.identifer)
+        let requestID = self.cacheImageManager.requestImage(for: asset, targetSize: imageSize*config.scale, contentMode: config.requestContentMode, options: config.requestIconOptions, resultHandler: completion)
+        asset.identifer = requestID
+    }
+    
+    /** 请求获取相簿的占位图*/
+    public func requestImageFrom(album: inout OMAlbum, completion: @escaping OMAlbumRequestHandler) {
+        guard album.iconAsset != nil else {
+            completion(config.iconPlaceholder, nil)
+            return
+        }
+        requestImageFrom(asset: &album.iconAsset!, imageSize: config.iconSize*config.scale, completion: completion)
+    }
+    
+    
+    /** 取消正在获取相册图片的请求*/
+    public func cancelRequestImageFor(requestID: OMImageRequestID) {
+        self.cacheImageManager.cancelImageRequest(requestID)
+    }
+    
+    //MARK: - private method
+    
+    /** 从缓存中取出相簿*/
+    private func readAlbumsFromCache() -> [OMCacheAlbum] {
+        guard let values = UserDefaults.standard.value(forKey: cacheData) as? Array<Data> else { return [] }
+        let albums = values.map({ (data) -> OMCacheAlbum in
+            return NSKeyedUnarchiver.unarchiveObject(with: data) as! OMCacheAlbum
+        })
+        return albums
+    }
+    
+    /** 初始化一些额外属性*/
+    private func initExtraInfo(with: PHAsset) -> OMAsset {
+        let asset: OMAsset = with
+        asset.isImage = with.mediaType == .image
+        asset.isVideo = with.mediaType == .video
+        if #available(iOS 11.0, *) {
+            asset.isGIF = with.playbackStyle == .imageAnimated
+        }
+        return asset
+    }
+    
+    /** 通过指定的相簿列表结果获取相簿*/
+    private func requestAlbumsFor(albumResult: PHFetchResult<PHAssetCollection>) -> [OMAlbum] {
+        var albums = [OMAlbum]()
+        var assetCollection = OMAlbum.init()
+        albumResult.enumerateObjects { (asset, index, stop) in
+            let results = OMAsset.fetchAssets(in: asset, options: nil)
+            let title = OMAlbumTitle(rawValue: asset.localizedTitle ?? "") ?? .none
+            if self.config.ignoreAlbums.contains(title) && title != .none { return }
+            if self.config.isHiddenWhereAlbumCountZero && results.count == 0 { return }
+            assetCollection.collection = asset
+            assetCollection.config = self.config
+            assetCollection.originTitle = asset.localizedTitle
+            assetCollection.title = asset.localizedTitle
+            assetCollection.results = results
+            assetCollection.count = results.count
+            assetCollection.location = asset.localizedLocationNames
+            guard let iconAsset: PHAsset = results.firstObject else {
+                albums.append(assetCollection)
+                return
+            }
+            assetCollection.iconAsset = self.initExtraInfo(with: iconAsset)
+            albums.append(assetCollection)
+        }
+        return albums
+    }
+    
+}
+
+/** 资源类型*/
+typealias OMAsset = PHAsset
+/** 请求图片和取消时的identifer*/
+typealias OMRequestID = PHImageRequestID
+
+/** 拓展资源类型方法*/
+extension OMAsset{
+    
+    /** 增加属性的key*/
+    fileprivate struct AssociationKeys {
+        static var identifer: OMRequestID = 0
+        static var isImage: Bool = false
+        static var isVideo: Bool = false
+        static var isGIF: Bool = false
+        static var isLivePhoto: Bool = false
+        static var isIniCloud: Bool = false
+        static var videoDuration: TimeInterval = 0.00
+    }
+    
+    /** 标识符*/
+    fileprivate var identifer: OMRequestID{
+        set{
+            objc_setAssociatedObject(self, &AssociationKeys.identifer, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_ASSIGN)
+        }
+        get{
+            guard let value = objc_getAssociatedObject(self, &AssociationKeys.identifer) else { return 0 }
+            return value as! OMRequestID
+        }
+    }
+
+    /** 是否为图片*/
+    public var isImage: Bool {
+        set{
+            objc_setAssociatedObject(self, &AssociationKeys.isImage, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_ASSIGN)
+        }
+        get{
+            guard let value = objc_getAssociatedObject(self, &AssociationKeys.isImage) else { return false }
+            return value as! Bool
+        }
+    }
+        
+    /** 是否为视频*/
+    public var isVideo: Bool {
+        set{
+            objc_setAssociatedObject(self, &AssociationKeys.isVideo, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_ASSIGN)
+        }
+        get{
+            guard let value = objc_getAssociatedObject(self, &AssociationKeys.isVideo) else { return false }
+            return value as! Bool
+        }
+    }
+    
+    /** 是否为图片*/
+    public var isGIF: Bool {
+        set{
+            objc_setAssociatedObject(self, &AssociationKeys.isGIF, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_ASSIGN)
+        }
+        get{
+            guard let value = objc_getAssociatedObject(self, &AssociationKeys.isGIF) else { return false }
+            return value as! Bool
+        }
+    }
+    
+    /** 是否为live photo*/
+    public var isLivePhoto: Bool {
+        set{
+            objc_setAssociatedObject(self, &AssociationKeys.isLivePhoto, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_ASSIGN)
+        }
+        get{
+            guard let value = objc_getAssociatedObject(self, &AssociationKeys.isLivePhoto) else { return false }
+            return value as! Bool
+        }
+    }
+    
+    /** 是否为图片*/
+    public var isIniCloud: Bool {
+        set{
+            objc_setAssociatedObject(self, &AssociationKeys.isIniCloud, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_ASSIGN)
+        }
+        get{
+            guard let value = objc_getAssociatedObject(self, &AssociationKeys.isIniCloud) else { return false }
+            return value as! Bool
+        }
+    }
+    
+    /** 是否为图片*/
+    public var veideoDuration: TimeInterval {
+        set{
+            objc_setAssociatedObject(self, &AssociationKeys.videoDuration, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_ASSIGN)
+        }
+        get{
+            guard let value = objc_getAssociatedObject(self, &AssociationKeys.videoDuration) else { return 0.00 }
+            return value as! TimeInterval
+        }
+    }
+}
+
+struct OMAlbum{
+    /** 配置*/
+    public var config: OMAlbumConfig!
+    
+    /** 相簿的数据*/
+    public var collection: PHAssetCollection!
+    
+    /** 结果*/
+    public var results: PHFetchResult<PHAsset>
+    
+    /** 相簿封面资源*/
+    public var iconAsset: OMAsset?
+    
+    /** 原始标题*/
+    public var originTitle: String?
+    
+    private var _title: String?
+    
+    /** 资源标识符*/
+    fileprivate var identifer: PHImageRequestID = 0
+    
+    /** 处理后的标题*/
+    public var title: String? {
+        set{
+            _title = newValue
+        }
+        get{
+            switch _title {
+            case OMAlbumTitle.hidden.rawValue:             return config.titleConfig.hidden
+            case OMAlbumTitle.slomo.rawValue:              return config.titleConfig.solomo
+            case OMAlbumTitle.bursts.rawValue:             return config.titleConfig.bursts
+            case OMAlbumTitle.videos.rawValue:             return config.titleConfig.videos
+            case OMAlbumTitle.portrait.rawValue:           return config.titleConfig.portait
+            case OMAlbumTitle.selfies.rawValue:            return config.titleConfig.selfies
+            case OMAlbumTitle.animated.rawValue:           return config.titleConfig.animated
+            case OMAlbumTitle.allPhotos.rawValue:          return config.titleConfig.allPhotos
+            case OMAlbumTitle.favorites.rawValue:          return config.titleConfig.favorites
+            case OMAlbumTitle.panoramas.rawValue:          return config.titleConfig.panoramas
+            case OMAlbumTitle.timeLapse.rawValue:          return config.titleConfig.timeLapse
+            case OMAlbumTitle.livePhotos.rawValue:         return config.titleConfig.livePhotos
+            case OMAlbumTitle.screenshots.rawValue:        return config.titleConfig.screenshots
+            case OMAlbumTitle.longExposure.rawValue:       return config.titleConfig.longExposure
+            case OMAlbumTitle.recentlyAdded.rawValue:      return config.titleConfig.recentlyAdded
+            case OMAlbumTitle.recentlyDeleted.rawValue:    return config.titleConfig.recentlyDeleted
+            default: return _title
+            }
+        }
+    }
+    /** 相簿的资源数量*/
+    public var count: Int
+    
+    /** 相簿存储的地理位置信息*/
+    public var location: [String]
+    
+    init() {
+        self.config = OMAlbumConfig.init()
+        self.collection = PHAssetCollection.init()
+        self.results = PHFetchResult.init()
+        self.iconAsset = nil
+        self.originTitle = ""
+        self.count = 0
+        self.location = []
+    }
+}
+
+
+/** 系统相簿名称*/
+enum OMAlbumTitle: String{
+    case none               = "_None"
+    case hidden             = "Hidden"
+    case recentlyDeleted    = "Recently Deleted"
+    case allPhotos          = "All Photos"
+    case slomo              = "Slo-mo"
+    case selfies            = "Selfies"
+    case recentlyAdded      = "Recently Added"
+    case favorites          = "Favorites"
+    case panoramas          = "Panoramas"
+    case videos             = "Videos"
+    case timeLapse          = "Time-lapse"
+    case portrait           = "Portrait"
+    case livePhotos         = "Live Photos"
+    case bursts             = "Bursts"
+    case screenshots        = "Screenshots"
+    case longExposure       = "Long Exposure"
+    case animated           = "Animated"
+}
+
+/** 系统自带相簿的名称*/
+struct OMAlbumTitleConfig{
+    public var hidden: String              = "隐藏"
+    public var recentlyDeleted: String     = "最近删除"
+    public var allPhotos: String           = "所有照片"
+    public var solomo: String              = "慢动作"
+    public var selfies: String             = "自拍"
+    public var recentlyAdded: String       = "最近添加"
+    public var favorites: String           = "个人收藏"
+    public var panoramas: String           = "全景照片"
+    public var videos: String              = "视频"
+    public var timeLapse: String           = "延时摄影"
+    public var portait: String             = "人像"
+    public var livePhotos: String          = "实况照片"
+    public var bursts: String              = "连拍快照"
+    public var screenshots: String         = "屏幕快照"
+    public var longExposure: String        = "长曝光"
+    public var animated: String            = "动图"
+    
+    init() { }
+}
+
+/** 相簿配置*/
+struct OMAlbumConfig{
+    
+    /** 是否开启缓存相簿列表，默认值：true，只缓存标题，原始相簿标题，资源数量，将会存储在UerDefaults里，若需清除缓存，可调用OMAlbumManagerz的removeCache方法*/
+    public var isCacheAlbumList = true
+    
+    /** 是否需要相簿占位图*/
+    public var isNeedIcon: Bool = true
+    
+    /** 默认相簿的占位图大小*/
+    public var iconSize: CGSize = CGSize.init(width: 40, height: 40)
+    
+    /** 请求图片的比例设置，在请求图标时将会用到此比例*/
+    public var scale: CGFloat = UIScreen.main.scale
+    
+    /** 请求图片时的图片u缩放模式*/
+    public var requestContentMode: PHImageContentMode = .aspectFit
+    
+    /** 配置相簿标题，若需使用原有标题，可通过originTitle属性获取 */
+    public var titleConfig: OMAlbumTitleConfig = OMAlbumTitleConfig()
+    
+    /** 是否隐藏相册当相簿里资源数量为0时*/
+    public var isHiddenWhereAlbumCountZero: Bool = false
+    
+    /** 不想展示的相簿名称 */
+    public var ignoreAlbums: [OMAlbumTitle] = []
+
+    /** 相簿的封面占位图*/
+    public var iconPlaceholder: UIImage? = nil
+    
+    /** 默认图*/
+    public var placeholderImage: UIImage? = nil
+    
+    /** 请求相簿的封面时的可选项*/
+    public var requestIconOptions: PHImageRequestOptions = {
+        let options = PHImageRequestOptions.init()
+        options.isSynchronous = false
+        options.isNetworkAccessAllowed = true
+        options.deliveryMode = .highQualityFormat
+        options.resizeMode = .exact
+        options.version = .current
+        return options
+    }()
+    
+    /** 获取相片或者视频时的可选项*/
+    static var fetchOptions: PHFetchOptions = {
+       let options = PHFetchOptions.init()
+        if #available(iOS 9.0, *) {
+            options.includeAssetSourceTypes = [PHAssetSourceType.typeUserLibrary, PHAssetSourceType.typeCloudShared, PHAssetSourceType.typeiTunesSynced]
+        }
+        options.sortDescriptors = [NSSortDescriptor.init(key: "creationDate", ascending: false)]
+        return options
+    }()
+    
+    init() { }
+}
+
+class AlbumViewController: UIViewController {
+
+    
+    static func initWith(albumID: String) -> AlbumViewController {
+        return self.init()
+    }
+  
+    
+    private var tableView: UITableView!
+    
+//    typealias OMAlbum = (album: PHCollection, count: Int)
+//
+    private var albums = [OMAlbum]()
+    
+    private let reuse = "reuse"
+    
+    let albumManager = OMAlbumManager.init()
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        self.view.backgroundColor = UIColor.white
+        print("开始：", CFAbsoluteTimeGetCurrent())
+//        self.albums = OMAlbumManager.cacheAlbums
+        self.albumManager.requestAlbums(type: .default) { (albums) in
+            self.albums = albums
+            DispatchQueue.main.async {
+                self.tableView.reloadData()
+            }
+            print("结束：", CFAbsoluteTimeGetCurrent(), albums.count)
+        }
+        
+        tableView = UITableView.init(frame: self.view.bounds)
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.tableFooterView = UIView()
+        tableView.register(OMImageViewCell().classForCoder, forCellReuseIdentifier: reuse)
+        self.view.addSubview(tableView)
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+       
+        
+        
+    }
+    
+
+}
+
+class OMImageViewCell: UITableViewCell {
+
+    public var iconView: UIImageView!
+    
+    public var titleLabel: UILabel!
+    
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        
+        iconView = UIImageView.init()
+        iconView?.frame = CGRect.init(x: 15, y: 5, width: 40, height: 40)
+        iconView?.contentMode = .center
+        iconView?.clipsToBounds = true
+        self.contentView.addSubview(iconView)
+        
+        titleLabel = UILabel.init()
+        titleLabel.frame = CGRect.init(x: 60, y: 0, width: UIScreen.main.bounds.width-75, height: self.contentView.frame.height)
+        self.contentView.addSubview(titleLabel)
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+}
+
+extension AlbumViewController: UITableViewDelegate, UITableViewDataSource {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return albums.count
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 50
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = OMImageViewCell.init(style: .default, reuseIdentifier: reuse)
+        cell.titleLabel.text = "(\(albums[indexPath.row].count.description))  "+(albums[indexPath.row].title ?? "")
+        cell.iconView.om_requestAlbumIcon(album: &albums[indexPath.row])
+        return cell
+    }
+}
