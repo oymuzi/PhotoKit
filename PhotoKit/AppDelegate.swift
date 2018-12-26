@@ -16,7 +16,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        let nav = UINavigationController.init(rootViewController: ViewController())
+        let nav = UINavigationController.init(rootViewController: OMAlbumsViewController())
         self.window?.rootViewController = nav
         self.window?.makeKeyAndVisible()
         return true

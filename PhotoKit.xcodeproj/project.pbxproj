@@ -18,6 +18,8 @@
 		84099B7321CA4CCE009F7FC4 /* PhotoViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84099B7221CA4CCE009F7FC4 /* PhotoViewController.swift */; };
 		8452D53421CB933D00FF30E7 /* AlbumViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8452D53321CB933D00FF30E7 /* AlbumViewController.swift */; };
 		84DB319521CC94AB00A28B98 /* Replace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84DB319421CC94AB00A28B98 /* Replace.swift */; };
+		84E52E3321D3784D00C06BF8 /* OMPhotoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E52E3221D3784D00C06BF8 /* OMPhotoManager.swift */; };
+		84E52E3521D381ED00C06BF8 /* OMAlbumsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E52E3421D381ED00C06BF8 /* OMAlbumsViewController.swift */; };
 		B83607D1B21F6CDF59AFFBFE /* libPods-PhotoKit.a in Frameworks */ = {isa = PBXBuildFile; fileRef = BBED8BE0350ABB8FF6964996 /* libPods-PhotoKit.a */; };
 /* End PBXBuildFile section */
 
@@ -57,6 +59,8 @@
 		84099B7221CA4CCE009F7FC4 /* PhotoViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoViewController.swift; sourceTree = "<group>"; };
 		8452D53321CB933D00FF30E7 /* AlbumViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumViewController.swift; sourceTree = "<group>"; };
 		84DB319421CC94AB00A28B98 /* Replace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Replace.swift; sourceTree = "<group>"; };
+		84E52E3221D3784D00C06BF8 /* OMPhotoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OMPhotoManager.swift; sourceTree = "<group>"; };
+		84E52E3421D381ED00C06BF8 /* OMAlbumsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OMAlbumsViewController.swift; sourceTree = "<group>"; };
 		BBED8BE0350ABB8FF6964996 /* libPods-PhotoKit.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PhotoKit.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0B9004D4DC1421B71DA5441 /* Pods-PhotoKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhotoKit.debug.xcconfig"; path = "Pods/Target Support Files/Pods-PhotoKit/Pods-PhotoKit.debug.xcconfig"; sourceTree = "<group>"; };
 		FC6028ABF411F46D2FABC6CB /* Pods-PhotoKit.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhotoKit.release.xcconfig"; path = "Pods/Target Support Files/Pods-PhotoKit/Pods-PhotoKit.release.xcconfig"; sourceTree = "<group>"; };
@@ -124,6 +128,8 @@
 				84099B6F21CA2337009F7FC4 /* PhotoCell.swift */,
 				84099B7221CA4CCE009F7FC4 /* PhotoViewController.swift */,
 				8452D53321CB933D00FF30E7 /* AlbumViewController.swift */,
+				84E52E3221D3784D00C06BF8 /* OMPhotoManager.swift */,
+				84E52E3421D381ED00C06BF8 /* OMAlbumsViewController.swift */,
 			);
 			path = PhotoKit;
 			sourceTree = "<group>";
@@ -344,10 +350,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				84099B4421C9E5A0009F7FC4 /* ViewController.swift in Sources */,
+				84E52E3321D3784D00C06BF8 /* OMPhotoManager.swift in Sources */,
 				8452D53421CB933D00FF30E7 /* AlbumViewController.swift in Sources */,
 				84DB319521CC94AB00A28B98 /* Replace.swift in Sources */,
 				84099B7321CA4CCE009F7FC4 /* PhotoViewController.swift in Sources */,
 				84099B7021CA2337009F7FC4 /* PhotoCell.swift in Sources */,
+				84E52E3521D381ED00C06BF8 /* OMAlbumsViewController.swift in Sources */,
 				84099B4221C9E5A0009F7FC4 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

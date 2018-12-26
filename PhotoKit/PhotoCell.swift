@@ -18,6 +18,7 @@ class PhotoCell: UICollectionViewCell {
         imageView = UIImageView.init(frame: CGRect(x: 0, y: 0, width: frame.width, height: frame.height))
         imageView?.contentMode = .scaleAspectFit
         imageView?.clipsToBounds = true
+        imageView?.image = nil
         addSubview(imageView!)
         
     }
