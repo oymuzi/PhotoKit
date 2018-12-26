@@ -154,6 +154,17 @@ class OMAlbumManager{
         case onlyVideo
     }
     
+    /** 错误类型*/
+    enum OMError: Error{
+        case notFoundAlbum          /// 未找到指定相簿
+        case invalidAsset           /// 不合法的资源
+        case deleteAssetFailured    /// 删除资源失败
+        case deleteAlbumFailured    /// 删除相簿失败
+        case initRequestFailured    /// 初始化操作失败
+        case createAlbumFailured    /// 创建相簿失败
+        case createAssetFailured    /// 创建资源失败
+    }
+    
     
     init() {
         self.cacheAlbums = readAlbumsFromCache()
@@ -161,38 +172,168 @@ class OMAlbumManager{
     
     //MARK: - public method
     
-    /** 创建相簿*/
-    public class func createAlbum(name: String, icon: UIImage, completionHandler: OMEditOprationHandler?){
-        PHPhotoLibrary.shared().performChanges({
-            PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: name)
-        }) { (status, error) in
-            guard completionHandler != nil else { return }
-            completionHandler?(status, error)
+    //MARK: - add method
+    
+    /** 添加图片到指定相簿中*/
+    public func addImage(_ image: UIImage, to album: OMAlbum, completion: OMEditOprationHandler?){
+        performChange({ [weak self] () in
+            guard let _ = self else { return }
+            let request = PHAssetChangeRequest.creationRequestForAsset(from: image)
+            request.creationDate = Date()
+            guard let asset = request.placeholderForCreatedAsset else {
+                completion?(false, OMError.initRequestFailured)
+                return
+            }
+            PHAssetCollectionChangeRequest.init(for: album.collection)?.addAssets([asset] as NSArray)
+        }, completionHandler: completion)
+    }
+    
+    /** 添加单个资源到指定相簿中*/
+    public func addAsset(_ asset: OMAsset, to album: OMAlbum, completion: OMEditOprationHandler?){
+        addAssets([asset], to: album, completion: completion)
+    }
+    
+    /** 添加图片到指定相簿中， automaticCreateAlbum设置为true的时候将会在没有找到该相簿时自动创建*/
+    public func addImage(_ image: UIImage, to albumName: String, automaticCreateAlbum: Bool = false, completion: OMEditOprationHandler?){
+        lookupAlbums(names: [albumName], useCache: false) { [weak self] (albums) in
+            guard let strongSelf = self else { return }
+            if albums.isEmpty {
+                guard automaticCreateAlbum else {
+                    completion?(false, OMError.invalidAsset)
+                    return
+                }
+                strongSelf.createAlbum(name: albumName, completion: { (status, error) in
+                    guard status else {
+                        completion?(false, OMError.createAlbumFailured)
+                        return
+                    }
+                    strongSelf.lookupAlbums(names: [albumName], useCache: false, completion: { (newAlbums) in
+                        strongSelf.addImage(image, to: newAlbums[0], completion: completion)
+                    })
+                })
+                return
+            }
+            strongSelf.addImage(image, to: albums[0], completion: completion)
         }
+    }
+    
+    /** 添加单个资源到指定相簿中, automaticCreateAlbum设置为true的时候将会在没有找到该相簿时自动创建*/
+    public func addAsset(_ asset: OMAsset, to albumName: String, automaticCreateAlbum: Bool = false, completion: OMEditOprationHandler?){
+        self.addAssets([asset], to: albumName, automaticCreateAlbum: automaticCreateAlbum, completion: completion)
+    }
+    
+    /** 添加多个资源到指定的相簿中*/
+    public func addAssets(_ assets: [OMAsset], to album: OMAlbum, completion: OMEditOprationHandler?){
+        performChange({ [weak self] () in
+            guard let _ = self else { return }
+            guard let request = PHAssetCollectionChangeRequest.init(for: album.collection) else {
+                completion?(false, OMError.initRequestFailured)
+                return
+            }
+            request.addAssets(assets as NSArray)
+        }, completionHandler: completion)
+    }
+
+    /** 添加多个资源到指定的相簿中, automaticCreateAlbum设置为true的时候将会在没有找到该相簿时自动创建*/
+    public func addAssets(_ assets: [OMAsset], to albumName: String, automaticCreateAlbum: Bool = false, completion: OMEditOprationHandler?){
+        guard !assets.isEmpty else {
+            completion?(false, OMError.invalidAsset)
+            return
+        }
+        self.lookupAlbums(names: [albumName], useCache: false) { [weak self] (albums) in
+            guard let strongSelf = self else { return }
+            if albums.isEmpty {
+                guard automaticCreateAlbum else {
+                    completion?(false, OMError.notFoundAlbum)
+                    return
+                }
+                strongSelf.createAlbum(name: albumName, completion: { (status, error) in
+                    guard status else {
+                        completion?(false, OMError.createAlbumFailured)
+                        return
+                    }
+                    strongSelf.lookupAlbums(names: [albumName], useCache: false, completion: { (newAlbums) in
+                        strongSelf.addAssets(assets, to: newAlbums[0], completion: completion)
+                    })
+                })
+                return
+            }
+            strongSelf.addAssets(assets, to: albums[0], completion: completion)
+        }
+    }
+    
+    /** 创建相簿*/
+    public func createAlbum(name: String, completion: OMEditOprationHandler?){
+        performChange({ [weak self] () in
+            guard let _ = self else { return }
+            PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: name)
+        }, completionHandler: completion)
     }
     
     /** 创建相簿列表*/
-    public class func createAlbumList(name: String, completionHandler: OMEditOprationHandler?) {
-        PHPhotoLibrary.shared().performChanges({
+    public func createAlbumList(name: String, completionHandler: OMEditOprationHandler?) {
+        performChange({ [weak self] () in
+            guard let _ = self else { return }
             PHCollectionListChangeRequest.creationRequestForCollectionList(withTitle: name)
-        }) { (status, error) in
-            guard completionHandler != nil else { return }
-            completionHandler?(status, error)
-        }
+        }, completionHandler: completionHandler)
     }
     
-    /** 删除相簿*/
-    public class func deleteAlbum(name: String){
-        PHPhotoLibrary.shared().performChanges({
-            PHAssetCollectionChangeRequest.deleteAssetCollections(<#T##assetCollections: NSFastEnumeration##NSFastEnumeration#>)
-        }, completionHandler: <#T##((Bool, Error?) -> Void)?##((Bool, Error?) -> Void)?##(Bool, Error?) -> Void#>)
+    //MARK: - remove method
+    /** 根据相簿名称移除单个相簿*/
+    public func removeAlbum(name: String, completion: OMEditOprationHandler?){
+        removeAlbum(names: [name], completion: completion)
     }
+    
+    /** 根据相簿名称数组移除多个相簿, 默认删除相簿里的照片或视频等资源*/
+    public func removeAlbum(names: [String], removeAllAssets: Bool = true, completion: OMEditOprationHandler?){
+        self.lookupAlbums(names: names, useCache: false) { [weak self] (albums) in
+            guard let strongSelf = self else { return }
+            strongSelf.removeAlbums(albums, completion: completion)
+        }
+    }
+
+    /** 删除单个相簿, 默认删除相簿里的照片或视频等资源*/
+    public func removeAlbum(_ album: OMAlbum, removeAllAssets: Bool = true, completion: OMEditOprationHandler?){
+        removeAlbums([album], completion: completion)
+    }
+    
+    /** 删除多个相簿, 默认删除相簿里的照片或视频等资源*/
+    public func removeAlbums(_ albums: [OMAlbum], removeAllAssets: Bool = true, completion: OMEditOprationHandler?){
+        performChange({ [weak self] () in
+            guard let _ = self else { return }
+            let collections = albums.map({ (album) -> PHAssetCollection in
+                PHAssetChangeRequest.deleteAssets(album.results)
+                return album.collection
+            })
+            PHAssetCollectionChangeRequest.deleteAssetCollections(collections as NSArray)
+        }, completionHandler: completion)
+    }
+    
+    /** 移除单个资源从指定相簿中*/
+    public func removeAsset(_ asset: OMAsset, in album: OMAlbum, completion: OMEditOprationHandler?){
+        removeAssets([asset], in: album, completion: completion)
+    }
+    
+    /** 移除多个资源从指定相簿中*/
+    public func removeAssets(_ asset: [OMAsset], in album: OMAlbum, completion:
+        OMEditOprationHandler?){
+        performChange({ [weak self] () in
+            guard let _ = self else { return }
+            guard let request = PHAssetCollectionChangeRequest.init(for: album.collection) else {
+                completion?(false, OMError.deleteAssetFailured)
+                return
+            }
+            request.removeAssets(asset as NSArray)
+        }, completionHandler: completion)
+    }
+    
     
     /** 清除缓存相簿列表，其实这个占用的空间非常小，一般情况下不调用此方法*/
     public func removeCache(){
         UserDefaults.standard.setNilValueForKey(cacheData)
     }
     
+    //MARK: - request method
     /** 在指定相册里获取资源结果*/
     public func requestAssetsResults(from album: OMAlbum, options: PHFetchOptions? = OMAlbumConfig.fetchOptions) -> PHFetchResult<PHAsset> {
         return PHAsset.fetchAssets(in: album.collection, options: options)
@@ -202,8 +343,9 @@ class OMAlbumManager{
     /** 在指定相簿里获取指定类型的资源*/
     public func requestAssets(from album: OMAlbum, type: OMAssetType = .default, options: PHFetchOptions? = OMAlbumConfig.fetchOptions) -> Array<OMAsset> {
         var assets = [PHAsset]()
-        requestAssetsResults(from: album, options: options).enumerateObjects { (asset, index, stop) in
-            let temp = self.initExtraInfo(with: asset)
+        requestAssetsResults(from: album, options: options).enumerateObjects { [weak self] (asset, index, stop) in
+            guard let strongSelf = self else { return }
+            let temp = strongSelf.initExtraInfo(with: asset)
             switch type{
             case .default:
                 assets.append(temp)
@@ -267,43 +409,46 @@ class OMAlbumManager{
     }
     
     /** 异步方式获取相簿*/
-    public func requestAlbumsAsync(type: OMAlbumFetchType = .default, completion: @escaping (([OMAlbum]) -> Void)){
-        DispatchQueue.global().async {
-            if !self.cacheAlbums.isEmpty {
-                let albums = self.cacheAlbums.map({ (cache) -> OMAlbum in
-                    var album = OMAlbum.init()
-                    album.title = cache.title
-                    album.originTitle = cache.originTitle
-                    album.count = cache.count
-                    return album
-                })
-                completion(albums)
+    public func requestAlbumsAsync(type: OMAlbumFetchType = .default, useCache: Bool = true, completion: @escaping (([OMAlbum]) -> Void)){
+        DispatchQueue.global().async { [weak self] () in
+            guard let strongSelf = self else { return }
+            if useCache {
+                if !strongSelf.cacheAlbums.isEmpty {
+                    let albums = strongSelf.cacheAlbums.map({ (cache) -> OMAlbum in
+                        var album = OMAlbum.init()
+                        album.title = cache.title
+                        album.originTitle = cache.originTitle
+                        album.count = cache.count
+                        return album
+                    })
+                    completion(albums)
+                }
             }
             var albumLists = [OMAlbum]()
             switch type {
             case .default:
                 let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
                 let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .albumRegular, options: nil)
-                let albums = self.requestAlbumsFor(albumResult: systemAlbum) + self.requestAlbumsFor(albumResult: userAlbum)
+                let albums = strongSelf.requestAlbumsFor(albumResult: systemAlbum) + strongSelf.requestAlbumsFor(albumResult: userAlbum)
                 albumLists = albums
             case .system:
                 let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
-                let albums = self.requestAlbumsFor(albumResult: systemAlbum)
+                let albums = strongSelf.requestAlbumsFor(albumResult: systemAlbum)
                 albumLists = albums
             case .user:
                 let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .albumRegular, options: nil)
-                let albums = self.requestAlbumsFor(albumResult: userAlbum)
+                let albums = strongSelf.requestAlbumsFor(albumResult: userAlbum)
                 albumLists = albums
             case .onlyImage:
                 let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .smartAlbumGeneric, options: nil)
                 let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumGeneric, options: nil)
-                let albums = self.requestAlbumsFor(albumResult: systemAlbum) + self.requestAlbumsFor(albumResult: userAlbum)
+                let albums = strongSelf.requestAlbumsFor(albumResult: systemAlbum) + strongSelf.requestAlbumsFor(albumResult: userAlbum)
                 albumLists = albums
             case .onlyGIF:
                 if #available(iOS 11.0, *) {
                     let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .smartAlbumAnimated, options: nil)
                     let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumAnimated, options: nil)
-                    let albums = self.requestAlbumsFor(albumResult: systemAlbum) + self.requestAlbumsFor(albumResult: userAlbum)
+                    let albums = strongSelf.requestAlbumsFor(albumResult: systemAlbum) + strongSelf.requestAlbumsFor(albumResult: userAlbum)
                     albumLists = albums
                 } else {
                     albumLists = []
@@ -311,11 +456,11 @@ class OMAlbumManager{
             case .onlyVideo:
                 let systemAlbum = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .smartAlbumVideos, options: nil)
                 let userAlbum = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumVideos, options: nil)
-                let albums = self.requestAlbumsFor(albumResult: systemAlbum) + self.requestAlbumsFor(albumResult: userAlbum)
+                let albums = strongSelf.requestAlbumsFor(albumResult: systemAlbum) + strongSelf.requestAlbumsFor(albumResult: userAlbum)
                 albumLists = albums
             }
             completion(albumLists)
-            guard self.config.isCacheAlbumList else { return }
+            guard strongSelf.config.isCacheAlbumList else { return }
             let cache = albumLists.map({ (album) -> OMCacheAlbum in
                 return OMCacheAlbum.init(title: album.title, originTitle: album.originTitle, count: album.count)
             })
@@ -358,6 +503,26 @@ class OMAlbumManager{
     
     //MARK: - private method
     
+    /** 执行增删改查操作*/
+    private func performChange(_ changeBlock: @escaping () -> Void, completionHandler: ((Bool, Error?) -> Void)? = nil){
+        PHPhotoLibrary.shared().performChanges(changeBlock, completionHandler: completionHandler)
+    }
+    
+    /** 查找指定的相簿*/
+    private func lookupAlbums(names: [String], useCache: Bool = true, completion: @escaping (([OMAlbum]) -> Void)){
+        guard !names.isEmpty else {
+            completion([])
+            return
+        }
+        requestAlbumsAsync(type: .default, useCache: useCache) {  [weak self] (albums) in
+            guard let _ = self else { return }
+            let handlerAlbums = albums.filter({ (album) -> Bool in
+                return names.contains(album.title ?? "")
+            })
+            completion(handlerAlbums)
+        }
+    }
+    
     /** 从缓存中取出相簿*/
     private func readAlbumsFromCache() -> [OMCacheAlbum] {
         guard let values = UserDefaults.standard.value(forKey: cacheData) as? Array<Data> else { return [] }
@@ -382,13 +547,14 @@ class OMAlbumManager{
     private func requestAlbumsFor(albumResult: PHFetchResult<PHAssetCollection>) -> [OMAlbum] {
         var albums = [OMAlbum]()
         var assetCollection = OMAlbum.init()
-        albumResult.enumerateObjects { (asset, index, stop) in
+        albumResult.enumerateObjects { [weak self] (asset, index, stop) in
+            guard let strongSelf = self else { return }
             let results = OMAsset.fetchAssets(in: asset, options: nil)
             let title = OMAlbumTitle(rawValue: asset.localizedTitle ?? "") ?? .none
-            if self.config.ignoreAlbums.contains(title) && title != .none { return }
-            if self.config.isHiddenWhereAlbumCountZero && results.count == 0 { return }
+            if strongSelf.config.ignoreAlbums.contains(title) && title != .none { return }
+            if strongSelf.config.isHiddenWhereAlbumCountZero && results.count == 0 { return }
             assetCollection.collection = asset
-            assetCollection.config = self.config
+            assetCollection.config = strongSelf.config
             assetCollection.originTitle = asset.localizedTitle
             assetCollection.title = asset.localizedTitle
             assetCollection.results = results
@@ -398,13 +564,28 @@ class OMAlbumManager{
                 albums.append(assetCollection)
                 return
             }
-            assetCollection.iconAsset = self.initExtraInfo(with: iconAsset)
+            assetCollection.iconAsset = strongSelf.initExtraInfo(with: iconAsset)
             albums.append(assetCollection)
         }
         return albums
     }
     
 }
+
+//
+//extension OMAlbumManager: PHPhotoLibraryChangeObserver{
+//    func registerObserver(){
+//        PHPhotoLibrary.shared().register(self)
+//    }
+//
+//    func photoLibraryDidChange(_ changeInstance: PHChange) {
+//        PHChange.init().
+//    }
+//
+//    private func unRegisterObserver(){
+//        PHPhotoLibrary.shared().unregisterChangeObserver(self)
+//    }
+//}
 
 /** 资源类型*/
 typealias OMAsset = PHAsset
@@ -698,9 +879,23 @@ class AlbumViewController: UIViewController {
             DispatchQueue.main.async {
                 self.tableView.reloadData()
             }
+            guard var asset = self.albums[0].iconAsset else { return }
+            self.albumManager.requestImageFrom(asset: &asset, imageSize: CGSize.init(width: 100, height: 100), completion: { (image, info) in
+                guard let icon = image else { return }
+                self.albumManager.addImage(icon, to: "TRR", automaticCreateAlbum: false, completion: { (status, error) in
+                    print("是否成功：\(status) \(error)")
+                })
+            
+            })
+            
+            
             print("结束：", CFAbsoluteTimeGetCurrent(), albums.count)
         }
-        OMAlbumManager.createAlbum(name: "AAAAA", icon: UIImage())
+        
+        self.albumManager.removeAlbum(names: ["没想到吧"]) { (status, error) in
+            print("是否成功删除：\(status)")
+        }
+        
         
         tableView = UITableView.init(frame: self.view.bounds)
         tableView.delegate = self
