@@ -20,7 +20,6 @@ class PhotoCell: UICollectionViewCell {
         imageView?.clipsToBounds = true
         imageView?.image = nil
         addSubview(imageView!)
-        
     }
     
     required init?(coder aDecoder: NSCoder) {

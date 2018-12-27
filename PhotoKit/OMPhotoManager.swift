@@ -50,7 +50,6 @@ extension UIImageView{
     func om_requestImageFrom(asset: inout OMAsset, imageSize: CGSize) {
         let manager = OMPhotoManager.init()
         manager.requestImageFrom(asset: &asset, imageSize: imageSize) { (image, info) in
-            print(info)
             DispatchQueue.main.async {
                 self.image = image
                 self.setNeedsLayout()
@@ -58,6 +57,42 @@ extension UIImageView{
         }
     }
     
+}
+
+
+func currentWindow(completion: @escaping (UIWindow?) -> Void) {
+    DispatchQueue.main.async {
+        let appDelegate = UIApplication.shared.delegate as! AppDelegate
+        completion(appDelegate.window)
+    }
+}
+
+func currentViewController() -> UIViewController?{
+    var vc: UIViewController? = nil
+    currentWindow { (window) in
+        guard let currentWindow = window else { return }
+//        DispatchQueue.main.sync {
+            guard let rootVC = currentWindow.rootViewController else {
+                vc = nil
+                return
+            }
+            if rootVC.isKind(of: UINavigationController.self) {
+                let navgationController = rootVC as? UINavigationController
+                vc =  navgationController?.children.first
+            }
+            if rootVC.isKind(of: UITabBarController.self) {
+                let tabbarController = rootVC as? UITabBarController
+                let selectVC = tabbarController?.selectedViewController
+                guard (selectVC?.isKind(of: UINavigationController.self) ?? false) else {
+                    vc = selectVC
+                    return
+                }
+                vc = (selectVC as? UINavigationController)?.children.first
+            }
+            vc = rootVC
+//        }
+    }
+    return vc
 }
 
 /** 缓存相簿列表数据的key */
@@ -136,6 +171,23 @@ class OMPhotoManager{
     }
     
     //MARK: - public method
+    
+    open class func presentPhotoViewController(){
+        OMPhotoManager.init().lookupAlbums(names: ["所有照片"], useCache: false) { (albums) in
+            guard !albums.isEmpty else { return }
+            let vc = OMPhotosViewController.initWith(album: albums[0])
+            vc.navigationItem.rightBarButtonItem = UIBarButtonItem.init(title: "取消", style: .plain, target: self, action: #selector(dismiss))
+            let rootVC = currentViewController()
+            let navi = UINavigationController.init(rootViewController: vc)
+            rootVC?.present(navi, animated: true, completion: nil)
+        }
+        
+    }
+    
+    @objc fileprivate class func dismiss() {
+        currentViewController()?.dismiss(animated: true, completion: nil)
+        
+    }
     
     //MARK: - add method
     

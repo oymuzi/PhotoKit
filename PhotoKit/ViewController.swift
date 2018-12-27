@@ -35,8 +35,7 @@ class ViewController: UIViewController {
     }
     
     @objc private func presentPhoto(){
-        let nav = UINavigationController.init(rootViewController: PhotoViewController())
-        self.navigationController?.present(nav, animated: true, completion: nil)
+        OMPhotoManager.presentPhotoViewController()
     }
     
     override func viewWillAppear(_ animated: Bool) {
