@@ -50,6 +50,7 @@ extension UIImageView{
     func om_requestImageFrom(asset: inout OMAsset, imageSize: CGSize) {
         let manager = OMPhotoManager.init()
         manager.requestImageFrom(asset: &asset, imageSize: imageSize) { (image, info) in
+            print(info)
             DispatchQueue.main.async {
                 self.image = image
                 self.setNeedsLayout()
@@ -482,7 +483,7 @@ class OMPhotoManager{
         }
         
         cancelRequestImageFor(requestID: asset.identifer)
-        let requestID = self.cacheImageManager.requestImage(for: asset, targetSize: imageSize*config.scale, contentMode: config.requestContentMode, options: config.requestIconOptions, resultHandler: completion)
+        let requestID = self.cacheImageManager.requestImage(for: asset, targetSize: imageSize, contentMode: config.requestContentMode, options: config.requestIconOptions, resultHandler: completion)
         asset.identifer = requestID
     }
     
@@ -559,11 +560,11 @@ class OMPhotoManager{
             assetCollection.results = results
             assetCollection.count = results.count
             assetCollection.location = asset.localizedLocationNames
-            guard let iconAsset: PHAsset = results.firstObject else {
-                albums.append(assetCollection)
-                return
+            if let iconAsset: PHAsset = results.lastObject, results.count > 0 {
+                assetCollection.iconAsset = self.initExtraInfo(with: iconAsset)
+            } else {
+                assetCollection.iconAsset = nil
             }
-            assetCollection.iconAsset = self.initExtraInfo(with: iconAsset)
             albums.append(assetCollection)
         }
         return albums
@@ -823,17 +824,23 @@ struct OMAlbumConfig{
     /** 是否开启缓存相簿列表，默认值：true，只缓存标题，原始相簿标题，资源数量，将会存储在UerDefaults里，若需清除缓存，可调用OMAlbumManager的removeCache方法*/
     public var isCacheAlbumList = true
     
+    /** 是否指向顶部*/
+    public var isRefecnceTop: Bool = true
+    
+    /** 是否按时间的升序排序*/
+    public var isSortByDateAscend: Bool = false
+    
     /** 是否需要相簿占位图*/
     public var isNeedIcon: Bool = true
     
     /** 默认相簿的占位图大小*/
-    public var iconSize: CGSize = CGSize.init(width: 40, height: 40)
+    public var iconSize: CGSize = CGSize.init(width: 60, height: 60)
     
     /** 请求图片的比例设置，在请求图标时将会用到此比例*/
-    public var scale: CGFloat = UIScreen.main.scale
+    public var scale: CGFloat = UIScreen.main.scale * 1.25
     
     /** 请求图片时的图片u缩放模式*/
-    public var requestContentMode: PHImageContentMode = .aspectFit
+    public var requestContentMode: PHImageContentMode = .default
     
     /** 配置相簿标题，若需使用原有标题，可通过originTitle属性获取 */
     public var titleConfig: OMAlbumTitleConfig = OMAlbumTitleConfig()

@@ -11,31 +11,27 @@ import UIKit
 class OMAlbumCell: UITableViewCell {
     
     public var iconView: UIImageView!
-    
+
     public var titleLabel: UILabel!
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
-        imageView?.frame = CGRect.init(x: 15, y: 5, width: 40, height: 40)
-        imageView?.contentMode = .scaleAspectFit
-        imageView?.clipsToBounds = true
         imageView?.image = nil
+        self.accessoryType = .disclosureIndicator
+        iconView = UIImageView.init()
+        iconView.image = nil
+        iconView?.frame = CGRect.init(x: 0, y: 0, width: 60, height: 60)
+        iconView?.contentMode = .scaleAspectFill
+        iconView?.clipsToBounds = true
+        self.contentView.addSubview(iconView)
+
+
+        titleLabel = UILabel.init()
+        titleLabel.frame = CGRect.init(x: 70, y: 0, width: UIScreen.main.bounds.width-120, height: 60)
+        titleLabel.font = UIFont.boldSystemFont(ofSize: 17)
+        titleLabel.text = ""
+        self.contentView.addSubview(titleLabel)
         
-        textLabel?.font = UIFont.boldSystemFont(ofSize: 17)
-        textLabel?.frame = CGRect.init(x: 60, y: 0, width: UIScreen.main.bounds.width-110, height: self.contentView.frame.height)
-//
-        
-//        iconView = UIImageView.init()
-//        iconView?.frame = CGRect.init(x: 15, y: 5, width: 40, height: 40)
-//        iconView?.contentMode = .center
-//        iconView?.clipsToBounds = true
-//        self.contentView.addSubview(iconView)
-        
-        
-//        titleLabel = UILabel.init()
-//        titleLabel.font = UIFont.boldSystemFont(ofSize: 17)
-//        titleLabel.frame = CGRect.init(x: 60, y: 0, width: UIScreen.main.bounds.width-75, height: self.contentView.frame.height)
-//        self.contentView.addSubview(titleLabel)
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -84,6 +80,7 @@ class OMAlbumsViewController: UIViewController {
                 print("数量：\(albums.count)")
             }
         }
+        print(CGSize.init(width: 60, height: 60)*2)
     }
 
 }
@@ -104,9 +101,18 @@ extension OMAlbumsViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = OMAlbumCell.init(style: .value1, reuseIdentifier: reuse)
         cell.accessoryType = .disclosureIndicator
-        cell.imageView?.om_requestAlbumIcon(album: &displayAlbums[indexPath.row])
-        cell.textLabel?.text = displayAlbums[indexPath.row].title
+        cell.selectionStyle = .gray
+        cell.iconView?.om_requestAlbumIcon(album: &displayAlbums[indexPath.row])
+        cell.titleLabel?.text = displayAlbums[indexPath.row].title
         cell.detailTextLabel?.text = displayAlbums[indexPath.row].count.description
         return cell
     }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let albumVC = OMPhotosViewController.initWith(album: displayAlbums[indexPath.row])
+        self.navigationController?.pushViewController(albumVC, animated: true)
+    }
+    
+    
 }

@@ -17,6 +17,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
         let nav = UINavigationController.init(rootViewController: OMAlbumsViewController())
+        nav.navigationBar.shadowImage = UIImage.init()
+        nav.navigationBar.tintColor = UIColor.black
+        nav.navigationBar.barTintColor = UIColor.white.withAlphaComponent(0.3)
+        nav.navigationBar.isTranslucent = true
         self.window?.rootViewController = nav
         self.window?.makeKeyAndVisible()
         return true
