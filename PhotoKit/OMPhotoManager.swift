@@ -60,39 +60,28 @@ extension UIImageView{
 }
 
 
-func currentWindow(completion: @escaping (UIWindow?) -> Void) {
-    DispatchQueue.main.async {
-        let appDelegate = UIApplication.shared.delegate as! AppDelegate
-        completion(appDelegate.window)
-    }
+func currentWindow() -> UIWindow? {
+    let appDelegate = UIApplication.shared.delegate as! AppDelegate
+    return appDelegate.window
 }
 
+
 func currentViewController() -> UIViewController?{
-    var vc: UIViewController? = nil
-    currentWindow { (window) in
-        guard let currentWindow = window else { return }
-//        DispatchQueue.main.sync {
-            guard let rootVC = currentWindow.rootViewController else {
-                vc = nil
-                return
-            }
-            if rootVC.isKind(of: UINavigationController.self) {
-                let navgationController = rootVC as? UINavigationController
-                vc =  navgationController?.children.first
-            }
-            if rootVC.isKind(of: UITabBarController.self) {
-                let tabbarController = rootVC as? UITabBarController
-                let selectVC = tabbarController?.selectedViewController
-                guard (selectVC?.isKind(of: UINavigationController.self) ?? false) else {
-                    vc = selectVC
-                    return
-                }
-                vc = (selectVC as? UINavigationController)?.children.first
-            }
-            vc = rootVC
-//        }
+    guard let window = currentWindow() else { return nil }
+    guard let rootVC = window.rootViewController else { return nil }
+    if rootVC.isKind(of: UINavigationController.self) {
+        let navgationController = rootVC as? UINavigationController
+        return navgationController?.children.first
     }
-    return vc
+    if rootVC.isKind(of: UITabBarController.self) {
+        let tabbarController = rootVC as? UITabBarController
+        let selectVC = tabbarController?.selectedViewController
+        guard (selectVC?.isKind(of: UINavigationController.self) ?? false) else {
+            return selectVC
+        }
+        return (selectVC as? UINavigationController)?.children.first
+    }
+    return rootVC
 }
 
 /** 缓存相簿列表数据的key */
@@ -176,16 +165,8 @@ class OMPhotoManager{
         OMPhotoManager.init().lookupAlbums(names: ["所有照片"], useCache: false) { (albums) in
             guard !albums.isEmpty else { return }
             let vc = OMPhotosViewController.initWith(album: albums[0])
-            vc.navigationItem.rightBarButtonItem = UIBarButtonItem.init(title: "取消", style: .plain, target: self, action: #selector(dismiss))
-            let rootVC = currentViewController()
-            let navi = UINavigationController.init(rootViewController: vc)
-            rootVC?.present(navi, animated: true, completion: nil)
+            presentNaviContrtoller(with: vc, animated: true, completion: nil)
         }
-        
-    }
-    
-    @objc fileprivate class func dismiss() {
-        currentViewController()?.dismiss(animated: true, completion: nil)
         
     }
     
