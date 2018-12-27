@@ -38,11 +38,10 @@ extension UIImageView{
     /** 请求相簿封面的图标*/
     func om_requestAlbumIcon(album: inout OMAlbum) {
         let manager = OMPhotoManager.init()
-        manager.requestImageFrom(album: &album) { [weak self] (image, info) in
-            guard let strongSelf = self else { return }
+        manager.requestImageFrom(album: &album) { (image, info) in
             DispatchQueue.main.async {
-                strongSelf.image = image
-                strongSelf.setNeedsLayout()
+                self.image = image
+                self.setNeedsLayout()
             }
         }
     }
@@ -50,11 +49,10 @@ extension UIImageView{
     /** 请求来自相簿的图片*/
     func om_requestImageFrom(asset: inout OMAsset, imageSize: CGSize) {
         let manager = OMPhotoManager.init()
-        manager.requestImageFrom(asset: &asset, imageSize: imageSize) { [weak self] (image, info) in
-            guard let strongSelf = self else { return }
+        manager.requestImageFrom(asset: &asset, imageSize: imageSize) { (image, info) in
             DispatchQueue.main.async {
-                strongSelf.image = image
-                strongSelf.setNeedsLayout()
+                self.image = image
+                self.setNeedsLayout()
             }
         }
     }
@@ -179,49 +177,47 @@ class OMPhotoManager{
     
     /** 添加图片到指定相簿中， automaticCreateAlbum设置为true的时候将会在没有找到该相簿时自动创建*/
     public func addImage(_ image: UIImage, to albumName: String, automaticCreateAlbum: Bool = false, completion: OMEditOprationHandler?){
-        lookupAlbums(names: [albumName], useCache: false) { [weak self] (albums) in
-            guard let strongSelf = self else { return }
+        lookupAlbums(names: [albumName], useCache: false) { (albums) in
             if albums.isEmpty {
                 guard automaticCreateAlbum else {
                     completion?(false, OMError.invalidAsset)
                     return
                 }
-                strongSelf.createAlbum(name: albumName, completion: { (status, error) in
+                self.createAlbum(name: albumName, completion: { (status, error) in
                     guard status else {
                         completion?(false, OMError.createAlbumFailured)
                         return
                     }
-                    strongSelf.lookupAlbums(names: [albumName], useCache: false, completion: { (newAlbums) in
-                        strongSelf.addImage(image, to: newAlbums[0], completion: completion)
+                    self.lookupAlbums(names: [albumName], useCache: false, completion: { (newAlbums) in
+                        self.addImage(image, to: newAlbums[0], completion: completion)
                     })
                 })
                 return
             }
-            strongSelf.addImage(image, to: albums[0], completion: completion)
+            self.addImage(image, to: albums[0], completion: completion)
         }
     }
     
     /** 添加图片到指定相簿中， automaticCreateAlbum设置为true的时候将会在没有找到该相簿时自动创建*/
     public func addImages(_ images: [UIImage], to albumName: String, automaticCreateAlbum: Bool = false, completion: OMEditOprationHandler?){
-        lookupAlbums(names: [albumName], useCache: false) { [weak self] (albums) in
-            guard let strongSelf = self else { return }
+        lookupAlbums(names: [albumName], useCache: false) { (albums) in
             if albums.isEmpty {
                 guard automaticCreateAlbum else {
                     completion?(false, OMError.invalidAsset)
                     return
                 }
-                strongSelf.createAlbum(name: albumName, completion: { (status, error) in
+                self.createAlbum(name: albumName, completion: { (status, error) in
                     guard status else {
                         completion?(false, OMError.createAlbumFailured)
                         return
                     }
-                    strongSelf.lookupAlbums(names: [albumName], useCache: false, completion: { (newAlbums) in
-                        strongSelf.addImages(images, to: newAlbums[0], completion: completion)
+                    self.lookupAlbums(names: [albumName], useCache: false, completion: { (newAlbums) in
+                        self.addImages(images, to: newAlbums[0], completion: completion)
                     })
                 })
                 return
             }
-            strongSelf.addImages(images, to: albums[0], completion: completion)
+            self.addImages(images, to: albums[0], completion: completion)
         }
     }
     
@@ -248,25 +244,24 @@ class OMPhotoManager{
             completion?(false, OMError.invalidAsset)
             return
         }
-        self.lookupAlbums(names: [albumName], useCache: false) { [weak self] (albums) in
-            guard let strongSelf = self else { return }
+        self.lookupAlbums(names: [albumName], useCache: false) { (albums) in
             if albums.isEmpty {
                 guard automaticCreateAlbum else {
                     completion?(false, OMError.notFoundAlbum)
                     return
                 }
-                strongSelf.createAlbum(name: albumName, completion: { (status, error) in
+                self.createAlbum(name: albumName, completion: { (status, error) in
                     guard status else {
                         completion?(false, OMError.createAlbumFailured)
                         return
                     }
-                    strongSelf.lookupAlbums(names: [albumName], useCache: false, completion: { (newAlbums) in
-                        strongSelf.addAssets(assets, to: newAlbums[0], completion: completion)
+                    self.lookupAlbums(names: [albumName], useCache: false, completion: { (newAlbums) in
+                        self.addAssets(assets, to: newAlbums[0], completion: completion)
                     })
                 })
                 return
             }
-            strongSelf.addAssets(assets, to: albums[0], completion: completion)
+            self.addAssets(assets, to: albums[0], completion: completion)
         }
     }
     
@@ -294,9 +289,8 @@ class OMPhotoManager{
     
     /** 根据相簿名称数组移除多个相簿, 默认删除相簿里的照片或视频等资源*/
     public func removeAlbum(names: [String], removeAllAssets: Bool = true, completion: OMEditOprationHandler?){
-        self.lookupAlbums(names: names, useCache: false) { [weak self] (albums) in
-            guard let strongSelf = self else { return }
-            strongSelf.removeAlbums(albums, completion: completion)
+        self.lookupAlbums(names: names, useCache: false) { (albums) in
+            self.removeAlbums(albums, completion: completion)
         }
     }
     
@@ -351,9 +345,8 @@ class OMPhotoManager{
     /** 在指定相簿里获取指定类型的资源*/
     public func requestAssets(from album: OMAlbum, type: OMAssetType = .default, options: PHFetchOptions? = OMAlbumConfig.fetchOptions) -> Array<OMAsset> {
         var assets = [PHAsset]()
-        requestAssetsResults(from: album, options: options).enumerateObjects { [weak self] (asset, index, stop) in
-            guard let strongSelf = self else { return }
-            let temp = strongSelf.initExtraInfo(with: asset)
+        requestAssetsResults(from: album, options: options).enumerateObjects { (asset, index, stop) in
+            let temp = self.initExtraInfo(with: asset)
             switch type{
             case .default:
                 assets.append(temp)
@@ -554,14 +547,13 @@ class OMPhotoManager{
     private func requestAlbumsFor(albumResult: PHFetchResult<PHAssetCollection>) -> [OMAlbum] {
         var albums = [OMAlbum]()
         var assetCollection = OMAlbum.init()
-        albumResult.enumerateObjects { [weak self] (asset, index, stop) in
-            guard let strongSelf = self else { return }
+        albumResult.enumerateObjects { (asset, index, stop) in
             let results = OMAsset.fetchAssets(in: asset, options: nil)
             let title = OMAlbumTitle(rawValue: asset.localizedTitle ?? "") ?? .none
-            if strongSelf.config.ignoreAlbums.contains(title) && title != .none { return }
-            if strongSelf.config.isHiddenWhereAlbumCountZero && results.count == 0 { return }
+            if self.config.ignoreAlbums.contains(title) && title != .none { return }
+            if self.config.isHiddenWhereAlbumCountZero && results.count == 0 { return }
             assetCollection.collection = asset
-            assetCollection.config = strongSelf.config
+            assetCollection.config = self.config
             assetCollection.originTitle = asset.localizedTitle
             assetCollection.title = asset.localizedTitle
             assetCollection.results = results
@@ -571,7 +563,7 @@ class OMPhotoManager{
                 albums.append(assetCollection)
                 return
             }
-            assetCollection.iconAsset = strongSelf.initExtraInfo(with: iconAsset)
+            assetCollection.iconAsset = self.initExtraInfo(with: iconAsset)
             albums.append(assetCollection)
         }
         return albums
