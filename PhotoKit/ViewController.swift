@@ -35,7 +35,7 @@ class ViewController: UIViewController {
     }
     
     @objc private func presentPhoto(){
-        OMPhotoManager.presentPhotoViewController()
+        OMPhotoManager.presentAlbumsViewController(isPushToAllPhoto: true)
     }
     
     override func viewWillAppear(_ animated: Bool) {

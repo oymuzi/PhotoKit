@@ -43,7 +43,8 @@ class OMPhotosViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         self.view.backgroundColor = UIColor.white
-        self.title = album?.title ?? "照片"
+        self.title = album?.title ?? "所有照片"
+        self.navigationItem.rightBarButtonItem = UIBarButtonItem.init(title: "取消", style: .plain, target: self, action: #selector(dismissSelf))
         self.setupUI()
         self.loadData()
     }
@@ -69,10 +70,22 @@ class OMPhotosViewController: UIViewController {
         self.photoListView.reloadData()
     }
     
+    @objc private func dismissSelf(){
+        DispatchQueue.main.async {
+            currentViewController()?.dismiss(animated: true, completion: nil)
+        }
+    }
+    
     /** 用相簿实例化*/
     public class func initWith(album: OMAlbum) -> OMPhotosViewController {
         let vc = OMPhotosViewController()
         vc.album = album
+        return vc
+    }
+    
+    public class func initWith(assets: [OMAsset]) -> OMPhotosViewController {
+        let vc = OMPhotosViewController()
+        vc.displayPhotos = assets
         return vc
     }
     

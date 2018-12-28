@@ -47,6 +47,10 @@ class OMAlbumsViewController: UIViewController {
     
     private var albumsListView: UITableView!
     
+    private var isLoadedData: Bool = false
+    
+    private var isRefreshed: Bool = false
+    
 //    private let manager = OMPhotoManager.init()
     
     private let reuse = "reuseIdenfier"
@@ -56,7 +60,6 @@ class OMAlbumsViewController: UIViewController {
         self.title = "照片"
         self.view.backgroundColor = UIColor.white
         self.setupUI()
-        self.loadData()
     }
     
     private func setupUI() {
@@ -71,16 +74,25 @@ class OMAlbumsViewController: UIViewController {
     }
     
     private func loadData() {
+        guard !isLoadedData else { return }
         let manager = OMPhotoManager.init()
         manager.requestAlbumsAsync { [weak self] (albums) in
             guard let strongSelf = self else { return }
             strongSelf.displayAlbums = albums
-            DispatchQueue.main.async {
-                strongSelf.albumsListView.reloadData()
-                print("数量：\(albums.count)")
-            }
+            strongSelf.isLoadedData = true
         }
-        print(CGSize.init(width: 60, height: 60)*2)
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        self.loadData()
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !isRefreshed else { return }
+        self.albumsListView.reloadData()
+        self.isRefreshed = true
     }
 
 }

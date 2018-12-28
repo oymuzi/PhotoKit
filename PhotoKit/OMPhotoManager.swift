@@ -161,13 +161,38 @@ class OMPhotoManager{
     
     //MARK: - public method
     
-    open class func presentPhotoViewController(){
-        OMPhotoManager.init().lookupAlbums(names: ["所有照片"], useCache: false) { (albums) in
-            guard !albums.isEmpty else { return }
-            let vc = OMPhotosViewController.initWith(album: albums[0])
-            presentNaviContrtoller(with: vc, animated: true, completion: nil)
+    //MARK: - open method
+    /** 跳转到相簿页面，若isPushToAllPhoto为true，则直接跳转到所有图片的页面*/
+    open class func presentAlbumsViewController(isPushToAllPhoto: Bool = false){
+        let vc = OMAlbumsViewController()
+        vc.title = "照片"
+        let manager = OMPhotoManager.init()
+        let navi = UINavigationController.init(rootViewController: vc)
+        configureNavigationbar(navi.navigationBar)
+        vc.navigationItem.rightBarButtonItem = UIBarButtonItem.init(title: "取消", style: .plain, target: self, action: #selector(dismiss))
+        DispatchQueue.main.async {
+            if isPushToAllPhoto{
+                let photos = manager.requestAssets(from: OMAsset.fetchAssets(with: OMAlbumConfig.fetchOptions))
+                let photoViewController = OMPhotosViewController.initWith(assets: photos)
+                photoViewController.navigationItem.rightBarButtonItem = UIBarButtonItem.init(title: "取消", style: .plain, target: self, action: #selector(dismiss))
+                vc.navigationController?.pushViewController(photoViewController, animated: false)
+            }
+            currentViewController()?.navigationController?.present(navi, animated: true, completion: nil)
         }
-        
+    }
+    
+    /** 设置导航栏*/
+    private class func configureNavigationbar(_ bar: UINavigationBar){
+        bar.tintColor = UIColor.black
+        bar.barTintColor = UIColor.white
+        bar.shadowImage = UIImage.init()
+    }
+    
+    /** 关闭图片管理器*/
+    @objc private class func dismiss(){
+        DispatchQueue.main.async {
+            currentViewController()?.dismiss(animated: true, completion: nil)
+        }
     }
     
     //MARK: - add method
@@ -375,6 +400,15 @@ class OMPhotoManager{
         return PHAsset.fetchAssets(in: album.collection, options: options)
     }
     
+    /** 从结果里获取资源*/
+    public func requestAssets(from results: PHFetchResult<PHAsset>) -> [OMAsset] {
+        var assets = [OMAsset]()
+        results.enumerateObjects { (asset, index, stop) in
+            let omAsset: OMAsset = self.initExtraInfo(with: asset)
+            assets.append(omAsset)
+        }
+        return assets
+    }
     
     /** 在指定相簿里获取指定类型的资源*/
     public func requestAssets(from album: OMAlbum, type: OMAssetType = .default, options: PHFetchOptions? = OMAlbumConfig.fetchOptions) -> Array<OMAsset> {
