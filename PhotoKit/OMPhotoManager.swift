@@ -184,7 +184,7 @@ class OMPhotoManager{
     /** 设置导航栏*/
     private class func configureNavigationbar(_ bar: UINavigationBar){
         bar.tintColor = UIColor.black
-        bar.barTintColor = UIColor.white
+        bar.barTintColor = UIColor.white.withAlphaComponent(0.3)
         bar.shadowImage = UIImage.init()
     }
     
